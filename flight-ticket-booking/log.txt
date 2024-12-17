@@ -1,0 +1,6 @@
+[Tue Dec 17 22:41:55 2024] Received from client: register quan 123
+[Tue Dec 17 22:41:55 2024] Sent to client: registerSuccess
+[Tue Dec 17 22:42:22 2024] Received from client: login quan 123
+[Tue Dec 17 22:42:22 2024] Sent to client: loginSuccess
+[Tue Dec 17 22:54:15 2024] Received from client: exit
+[Tue Dec 17 22:54:15 2024] Sent to client: goodbye

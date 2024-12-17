@@ -222,10 +222,10 @@ int main()
         {
         case 1:
             printf("\nusername:");
-            scanf("%s", &usernameInput);
+            scanf("%s", usernameInput);
             getchar();
             printf("password:");
-            scanf("%s", &passwordInput);
+            scanf("%s", passwordInput);
 
             int flag = 0;
             for (node_t *p = lst; p != NULL; p = p->next)
@@ -259,10 +259,10 @@ int main()
             break;
         case 2:
             printf("\nusername:");
-            scanf("%s", &usernameInput);
+            scanf("%s", usernameInput);
             getchar();
             printf("password:");
-            scanf("%s", &passwordInput);
+            scanf("%s", passwordInput);
             int flagUsername = 0;
             int flagPassword = 0;
             int flagStatus;
@@ -336,7 +336,7 @@ int main()
             else
             {
                 printf("\nusername:");
-                scanf("%s", &usernameInput);
+                scanf("%s", usernameInput);
                 int flagUsername = 0;
                 int flagStatus;
                 for (node_t *p = lst; p != NULL; p = p->next)
@@ -374,7 +374,7 @@ int main()
             else
             {
                 printf("\nusername:");
-                scanf("%s", &usernameInput);
+                scanf("%s", usernameInput);
                 int flagUsername = 0;
 
                 for (node_t *p = lst; p != NULL; p = p->next)
