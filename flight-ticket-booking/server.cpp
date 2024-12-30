@@ -10,36 +10,48 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <cstring>
-#include "log.h"
+#include "log.h" // ghi log
 
 using namespace std;
 #define BUFFER_SIZE 16384
 
-// mutex client_mutex; // bảo vệ map clients khỏi các truy cập đồng thời từ nhiều thread
+// mutex client_mutex;       // bảo vệ map clients khỏi các truy cập đồng thời từ nhiều thread
 // map<int, string> clients; // Map lưu socket và username
 map<string, string> accounts;
-
-// Hàm ghi log
-// void logMessage(const string &message)
-// {
-//     ofstream logFile("log.txt", ios::app); // Mở file với chế độ append
-//     if (logFile.is_open())
-//     {
-//         // Ghi thời gian vào log
-//         time_t now = time(0);
-//         char *dt = ctime(&now);
-//         dt[strlen(dt) - 1] = '\0';
-//         logFile << "[" << dt << "] " << message << endl;
-//         logFile.close();
-//     }
-//     else
-//     {
-//         cerr << "Unable to open log file" << endl;
-//     }
-// }
+struct Flight
+{
+    int id;
+    string airline;
+    string departure;
+    string destination;
+    string startDate;
+    string endDate;
+    int quantity;
+    string classType;
+    int price;
+    int time;
+};
 
 // Tải thông tin tài khoản từ file account.txt
-void loadAccounts(const string &filename)
+void loadUsers(const string &filename)
+{
+    ifstream file(filename);
+    if (!file.is_open())
+    {
+        cerr << "Not open file account.txt\n";
+        exit(EXIT_FAILURE);
+    }
+    string line, username, password;
+    while (getline(file, line))
+    {
+        stringstream ss(line);
+        ss >> username >> password;
+        accounts[username] = password;
+    }
+    file.close();
+}
+
+void loadFlights(const string &filename)
 {
     ifstream file(filename);
     if (!file.is_open())
@@ -122,12 +134,24 @@ void handleClient(int client_socket)
         }
     }
 
-    // Thêm client vào danh sách
+    // Tìm kiếm chuyến bay
+    while (true)
     {
-        // tạo mutex để ngăn nhiều client thao tác đồng thời vào map clients
-        // lock_guard<mutex> lock(client_mutex);
-        // clients[client_socket] = username;
+        memset(buffer, 0, BUFFER_SIZE);
+        recv(client_socket, buffer, BUFFER_SIZE, 0);
+        string command(buffer);
+        // Ghi log message client gửi
+        logMessage("Received from client: " + command);
+        stringstream ss(command);
+        string action, departure, destination, depart, returns, quantity, classes;
+        ss >> action >> from >> to >> depart >> returns >> quantity >> classes;
     }
+
+    // Thêm client vào danh sách
+
+    // tạo mutex để ngăn nhiều client thao tác đồng thời vào map clients
+    // lock_guard<mutex> lock(client_mutex);
+    // clients[client_socket] = username;
 
     // nhận tin nhắn từ client
     // while (true)
@@ -221,8 +245,9 @@ int main(int argc, char *argv[])
 
     cout << "Server running on port: " << PORT << "\n";
 
-    // lưu thông tin tài khoản mật khẩu từ file account.txt vào accounts
-    loadAccounts("users.txt");
+    // lưu thông tin tài khoản mật khẩu từ file users.txt vào accounts
+    loadUsers("users.txt");
+    loadFlights("flights.txt");
 
     // tạo mảng động threads kiểu thread
     vector<thread> threads;

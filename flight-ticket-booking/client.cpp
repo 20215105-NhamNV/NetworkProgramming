@@ -72,10 +72,10 @@ int main(int argc, char *argv[])
     while (true)
     {
         string command;
-        cout << "\nTrang đăng kí, đăng nhập: \n";
-        cout << "------------------------------\n";
-        cout << "(login/register username password) để đăng kí đăng nhập\n";
-        cout << "(exit) để thoát\n";
+        cout << "\nTrang đăng kí, đăng nhập\n";
+        cout << "----------------------------------------------------------\n";
+        cout << "Đăng kí đăng nhập: (login/register username password)\n";
+        cout << "Thoát: (exit)\n";
         getline(cin, command);
         send(client_socket, command.c_str(), command.length(), 0);
 
@@ -85,8 +85,33 @@ int main(int argc, char *argv[])
 
         if (strcmp(response, "loginSuccess") == 0)
         {
-            cout << "Login successful!\n";
-            break;
+            cout << "Đăng nhập thành công!\n";
+            cout << "\nTrang người dùng\n";
+            cout << "----------------------------------------------------------\n";
+            cout << "1.Tìm kiếm chuyến bay\n";
+            cout << "2.So sánh giá vé\n";
+            cout << "3.So sánh thời gian bay\n";
+            cout << "4.Đặt vé máy bay và thanh toán trực tuyến\n";
+            cout << "5.Xem mã vé điện tử\n";
+            cout << "Nhập lựa chọn của bạn(từ 1 đến 5):\n";
+            int choose;
+            cin >> choose;
+            if (choose == 1)
+            {
+                cout << "Nhập tiêu chí tìm kiếm:(search departure destination startDate endDate quantity classType)\n";
+                string userInput;
+                getline(cin, userInput);
+                send(client_socket, userInput.c_str(), userInput.length(), 0);
+
+                char userResponse[BUFFER_SIZE];
+                bzero(userResponse, BUFFER_SIZE);
+                recv(client_socket, userResponse, BUFFER_SIZE, 0);
+            }
+            else
+            {
+                cout << "Tính năng chưa hoạt động\n";
+                break;
+            }
         }
         else if (strcmp(response, "loginFail") == 0)
         {
