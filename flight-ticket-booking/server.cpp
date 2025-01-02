@@ -18,19 +18,22 @@ using namespace std;
 // mutex client_mutex;       // bảo vệ map clients khỏi các truy cập đồng thời từ nhiều thread
 // map<int, string> clients; // Map lưu socket và username
 map<string, string> accounts;
+
 struct Flight
 {
-    int id;
+    string id;
     string airline;
     string departure;
     string destination;
     string startDate;
     string endDate;
-    int quantity;
+    string quantity;
     string classType;
-    int price;
-    int time;
+    string price;
+    string time;
 };
+
+vector<Flight> flights;
 
 // Tải thông tin tài khoản từ file account.txt
 void loadUsers(const string &filename)
@@ -59,12 +62,20 @@ void loadFlights(const string &filename)
         cerr << "Not open file account.txt\n";
         exit(EXIT_FAILURE);
     }
-    string line, username, password;
+    string line;
     while (getline(file, line))
     {
+        Flight flight;
         stringstream ss(line);
-        ss >> username >> password;
-        accounts[username] = password;
+
+        ss >> flight.id >> flight.airline >> flight.departure >> flight.destination >> flight.startDate >> flight.endDate >> flight.quantity >> flight.classType >> flight.price >> flight.time;
+
+        if (ss.fail())
+        {
+            cerr << "Error parsing flight data\n";
+            continue;
+        }
+        flights.push_back(flight);
     }
     file.close();
 }
@@ -143,8 +154,57 @@ void handleClient(int client_socket)
         // Ghi log message client gửi
         logMessage("Received from client: " + command);
         stringstream ss(command);
-        string action, departure, destination, depart, returns, quantity, classes;
-        ss >> action >> from >> to >> depart >> returns >> quantity >> classes;
+        string action, departure, destination, startDate, endDate, quantityMax, quantityMin, classType;
+        ss >> action >> departure >> destination >> startDate >> endDate >> quantityMin >> quantityMax >> classType;
+
+        if (action == "search")
+        {
+            string searchResult;
+            for (const Flight &flight : flights)
+            {
+                // Check departure condition
+                if (departure != "all" && flight.departure != departure)
+                    continue;
+
+                // Check destination
+                if (destination != "all" && flight.destination != destination)
+                    continue;
+
+                // Check dates
+                if (startDate != "all" && flight.startDate != startDate)
+                    continue;
+
+                if (endDate != "all" && flight.startDate != endDate)
+                    continue;
+
+                // check quantity
+                if (quantityMin != "all" && stoi(flight.quantity) < stoi(quantityMin))
+                {
+                    continue;
+                }
+
+                if (quantityMax != "all" && stoi(flight.quantity) > stoi(quantityMax))
+                    continue;
+
+                // Check class type
+                if (classType != "all" && flight.classType != classType)
+                    continue;
+
+                // Add matching flight to result
+                searchResult += flight.id + " " + flight.airline + " " +
+                                flight.departure + " " + flight.destination + " " +
+                                flight.startDate + " " + flight.endDate + " " +
+                                flight.quantity + " " + flight.classType + " " +
+                                flight.price + " " + flight.time + "\n";
+            }
+
+            // Send results to client
+            if (searchResult.empty())
+                searchResult = "Khong tim thay chuyen bay nao\n";
+
+            send(client_socket, searchResult.c_str(), searchResult.length(), 0);
+            logMessage("Sent to client: " + searchResult);
+        }
     }
 
     // Thêm client vào danh sách

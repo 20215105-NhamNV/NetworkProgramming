@@ -85,32 +85,41 @@ int main(int argc, char *argv[])
 
         if (strcmp(response, "loginSuccess") == 0)
         {
-            cout << "Đăng nhập thành công!\n";
-            cout << "\nTrang người dùng\n";
-            cout << "----------------------------------------------------------\n";
-            cout << "1.Tìm kiếm chuyến bay\n";
-            cout << "2.So sánh giá vé\n";
-            cout << "3.So sánh thời gian bay\n";
-            cout << "4.Đặt vé máy bay và thanh toán trực tuyến\n";
-            cout << "5.Xem mã vé điện tử\n";
-            cout << "Nhập lựa chọn của bạn(từ 1 đến 5):\n";
-            int choose;
-            cin >> choose;
-            if (choose == 1)
+            while (true)
             {
-                cout << "Nhập tiêu chí tìm kiếm:(search departure destination startDate endDate quantity classType)\n";
-                string userInput;
-                getline(cin, userInput);
-                send(client_socket, userInput.c_str(), userInput.length(), 0);
+                cout << "\nTrang người dùng\n";
+                cout << "----------------------------------------------------------\n";
+                cout << "1.Tìm kiêm chuyên bay\n";
+                cout << "2.So sánh giá vé\n";
+                cout << "3.So sánh thời gian bay\n";
+                cout << "4.Đặt vé máy bay và thanh toán trực tuyên\n";
+                cout << "5.Xem mã vé điện tư\n";
+                cout << "Nhập lựa chọn của bạn(từ 1 đên 5):\n";
+                int choose;
+                cin >> choose;
+                if (choose == 1)
+                {
+                    cin.ignore();
+                    cout << "Nhập tiêu chí tìm kiêm:" << "\n"
+                         << "(search departure destination startDate endDate quantityMin quantityMax classType)\n";
+                    string userInput;
+                    getline(cin, userInput);
+                    send(client_socket, userInput.c_str(), userInput.length(), 0);
 
-                char userResponse[BUFFER_SIZE];
-                bzero(userResponse, BUFFER_SIZE);
-                recv(client_socket, userResponse, BUFFER_SIZE, 0);
-            }
-            else
-            {
-                cout << "Tính năng chưa hoạt động\n";
-                break;
+                    char userResponse[BUFFER_SIZE];
+                    bzero(userResponse, BUFFER_SIZE);
+                    recv(client_socket, userResponse, BUFFER_SIZE, 0);
+                    cout << "\nKêt quả tìm kiêm:\n";
+                    cout << "----------------------------------------------------------\n";
+                    cout << "ID Airline Departure Destination StartDate EndDate Quantity ClassType Price Time\n";
+                    cout << userResponse << endl;
+                    cout << "----------------------------------------------------------\n";
+                }
+                else
+                {
+                    cout << "Tính năng chưa hoạt động\n";
+                    break;
+                }
             }
         }
         else if (strcmp(response, "loginFail") == 0)
@@ -132,6 +141,7 @@ int main(int argc, char *argv[])
         }
         else
         {
+            break;
             cout << "Error! Try again.!\n";
         }
     }
