@@ -6,7 +6,7 @@ TARGET_CLIENT = client
 all: $(TARGET_SERVER) $(TARGET_CLIENT)  # Xây dựng cả server và client
 
 $(TARGET_SERVER): server.cpp log.cpp
-	$(CC) $(CFLAGS) -o $(TARGET_SERVER) server.cpp log.cpp  # Biên dịch và liên kết server
+	$(CC) $(CFLAGS) -o $(TARGET_SERVER) server.cpp log.cpp -lcurl -lcrypto  # Biên dịch và liên kết server
 
 $(TARGET_CLIENT): client.cpp log.cpp
 	$(CC) $(CFLAGS) -o $(TARGET_CLIENT) client.cpp log.cpp  # Biên dịch và liên kết client

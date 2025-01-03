@@ -151,6 +151,37 @@ int main(int argc, char *argv[])
                     cout << userResponse << endl;
                     cout << "----------------------------------------------------------\n";
                 }
+                else if (choose == 4)
+                {
+                    cin.ignore();
+                    cout << "Nhập mã vé:(booking flightId)" << "\n";
+                    string userInput;
+                    getline(cin, userInput);
+                    send(client_socket, userInput.c_str(), userInput.length(), 0);
+
+                    char userResponse[BUFFER_SIZE];
+                    bzero(userResponse, BUFFER_SIZE);
+                    recv(client_socket, userResponse, BUFFER_SIZE, 0);
+                    cout << "\nTruy cập vào url sau đê thanh toán:\n";
+                    cout << "----------------------------------------------------------\n";
+                    cout << userResponse << endl;
+                    cout << "----------------------------------------------------------\n";
+                }
+                else if (choose == 5)
+                {
+                    cin.ignore();
+                    cout << "Xem mã vé điện tư: (receive bookingId email)" << "\n";
+                    string userInput;
+                    getline(cin, userInput);
+                    send(client_socket, userInput.c_str(), userInput.length(), 0);
+
+                    char userResponse[BUFFER_SIZE];
+                    bzero(userResponse, BUFFER_SIZE);
+                    recv(client_socket, userResponse, BUFFER_SIZE, 0);
+                    cout << "----------------------------------------------------------\n";
+                    cout << userResponse << endl;
+                    cout << "----------------------------------------------------------\n";
+                }
                 else
                 {
                     cout << "Tính năng chưa hoạt động\n";

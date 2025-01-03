@@ -12,12 +12,20 @@
 #include <cstring>
 #include "log.h" // ghi log
 #include <algorithm>
+#include <openssl/hmac.h>
+#include <curl/curl.h>
+#include <openssl/hmac.h>
+#include <openssl/evp.h>
+#include <iomanip>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 using namespace std;
 #define BUFFER_SIZE 16384
 
-// mutex client_mutex;       // bảo vệ map clients khỏi các truy cập đồng thời từ nhiều thread
-// map<int, string> clients; // Map lưu socket và username
+mutex client_mutex;       // bảo vệ map clients khỏi các truy cập đồng thời từ nhiều thread
+map<int, string> clients; // Map lưu socket và username
 map<string, string> accounts;
 mutex register_mutex;
 
@@ -36,6 +44,20 @@ struct Flight
 };
 
 vector<Flight> flights;
+
+// Add these structs after Flight struct
+struct Booking
+{
+    string bookingId;
+    string username;
+    string flightId;
+    string amount;
+    string timestamp;
+};
+
+// Add these vectors and mutex for thread safety
+vector<Booking> bookings;
+mutex booking_mutex;
 
 // Tải thông tin tài khoản từ file account.txt
 void loadUsers(const string &filename)
@@ -82,6 +104,123 @@ void loadFlights(const string &filename)
     file.close();
 }
 
+void loadBookings(const string &filename)
+{
+    ifstream file(filename);
+    if (!file.is_open())
+    {
+        cerr << "Not open file account.txt\n";
+        exit(EXIT_FAILURE);
+    }
+    string line;
+    while (getline(file, line))
+    {
+        Booking booking;
+        stringstream ss(line);
+
+        ss >> booking.bookingId >> booking.username >> booking.flightId >> booking.amount >> booking.timestamp;
+
+        if (ss.fail())
+        {
+            cerr << "Error parsing flight data\n";
+            continue;
+        }
+        bookings.push_back(booking);
+    }
+    file.close();
+}
+
+// Hàm tạo HMAC SHA256
+string generateHMAC(const string &key, const string &data)
+{
+    unsigned char hash[EVP_MAX_MD_SIZE];
+    size_t hash_len = 0;
+
+    // Sử dụng context mới (API OpenSSL 3.0)
+    EVP_MAC *mac = EVP_MAC_fetch(NULL, "HMAC", NULL);
+    EVP_MAC_CTX *ctx = EVP_MAC_CTX_new(mac);
+
+    // Định cấu hình thuật toán HMAC-SHA256
+    OSSL_PARAM params[] = {
+        OSSL_PARAM_utf8_string("digest", (char *)"SHA256", 0),
+        OSSL_PARAM_END};
+
+    EVP_MAC_init(ctx, (unsigned char *)key.c_str(), key.length(), params);
+    EVP_MAC_update(ctx, (unsigned char *)data.c_str(), data.length());
+    EVP_MAC_final(ctx, hash, &hash_len, sizeof(hash));
+
+    // Giải phóng bộ nhớ
+    EVP_MAC_CTX_free(ctx);
+    EVP_MAC_free(mac);
+
+    // Chuyển đổi sang chuỗi hex
+    ostringstream oss;
+    for (size_t i = 0; i < hash_len; i++)
+    {
+        oss << hex << setw(2) << setfill('0') << (int)hash[i];
+    }
+    return oss.str();
+}
+
+size_t WriteCallback(void *contents, size_t size, size_t nmemb, string *userp)
+{
+    userp->append((char *)contents, size * nmemb);
+    return size * nmemb;
+}
+
+string makeHttpRequest(const string &url, const string &jsonData)
+{
+    CURL *curl = curl_easy_init();
+    string response;
+
+    if (curl)
+    {
+        struct curl_slist *headers = NULL;
+        headers = curl_slist_append(headers, "Content-Type: application/x-www-form-urlencoded");
+
+        json j = json::parse(jsonData);
+
+        // Build parameters string
+        string params;
+        for (auto it = j.begin(); it != j.end(); ++it)
+        {
+            if (it != j.begin())
+            {
+                params += "&";
+            }
+
+            string value;
+            if (it.value().is_string())
+            {
+                value = it.value().get<string>();
+            }
+            else
+            {
+                value = it.value().dump();
+            }
+
+            params += it.key() + "=" + value;
+        }
+
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_POST, 1L);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, params.c_str());
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+
+        CURLcode res = curl_easy_perform(curl);
+        if (res != CURLE_OK)
+        {
+            cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << endl;
+        }
+
+        curl_slist_free_all(headers);
+        curl_easy_cleanup(curl);
+    }
+    return response;
+}
+
 // Xử lý client
 void handleClient(int client_socket)
 {
@@ -104,9 +243,12 @@ void handleClient(int client_socket)
         {
             if (accounts.count(user) && accounts[user] == pass)
             {
+                username = user; // Add this line
                 send(client_socket, "loginSuccess", strlen("loginSuccess"), 0);
                 // Ghi log server gửi
                 logMessage("Sent to client: loginSuccess");
+                lock_guard<mutex> lock(client_mutex);
+                clients[client_socket] = username;
                 break;
             }
             else
@@ -342,6 +484,114 @@ void handleClient(int client_socket)
             send(client_socket, descResult.c_str(), descResult.length(), 0);
             logMessage("Sent to client: " + descResult);
         }
+        else if (action == "booking")
+        {
+            string flightId = departure;
+
+            // Find flight details
+            Flight *selectedFlight = nullptr;
+            for (auto &flight : flights)
+            {
+                if (flight.id == flightId)
+                {
+                    selectedFlight = &flight;
+                    break;
+                }
+            }
+
+            if (!selectedFlight)
+            {
+                send(client_socket, "Flight not found", strlen("Flight not found"), 0);
+                continue;
+            }
+
+            string app_id = "2554";
+            string key1 = "sdngKKJmqEMzvh5QQcdD2A9XBSKUNaYn";
+            string Key2 = "trMrHtvjo6myautxDUiAcYsVtaeQ8nhf";
+
+            // Generate transaction ID
+            srand(time(nullptr));
+            int transID = rand() % 1000000;
+
+            // Get current timestamp
+            time_t now = time(nullptr);
+            char timestamp[7];
+            strftime(timestamp, sizeof(timestamp), "%y%m%d", localtime(&now));
+
+            string app_trans_id = string(timestamp) + "_" + to_string(transID);
+
+            string app_user = "user123";
+            int amount = stoi(selectedFlight->price);
+            long app_time = time(nullptr) * 1000; // Current time in milliseconds
+
+            string embed_data = "{\"redirecturl\":\"https://zalopay.vn/\"}";
+            string item = "[{}]";
+
+            // Create data string for MAC
+            string data = app_id + "|" + app_trans_id + "|" + app_user + "|" +
+                          to_string(amount) + "|" + to_string(app_time) + "|" +
+                          embed_data + "|" + item;
+
+            string mac = generateHMAC(key1, data);
+
+            // Create order data
+
+            string orderData = json{
+                {"app_id", app_id},
+                {"app_trans_id", app_trans_id},
+                {"app_user", app_user},
+                {"app_time", app_time},
+                {"item", json::parse(item)},
+                {"embed_data", json::parse(embed_data)},
+                {"amount", amount},
+                {"description", "Payment for flight " + flightId},
+                {"bank_code", ""},
+                {"mac", mac}}.dump(); // Chuyển thành chuỗi JSON
+
+            // Make HTTP request
+            string response = makeHttpRequest("https://sb-openapi.zalopay.vn/v2/create", orderData);
+
+            // Parse response
+            json responseJson = json::parse(response);
+
+            if (responseJson["return_code"] == 1)
+            {
+                string order_url = responseJson["order_url"];
+
+                // Create booking record
+                lock_guard<mutex> lock(booking_mutex);
+                Booking booking{
+                    to_string(transID), // bookingId
+                    username,           // username/email
+                    flightId,           // flightId
+                    to_string(amount),  // amount
+                    to_string(app_time) // timestamp
+                };
+                bookings.push_back(booking);
+
+                // Write to bookings.txt
+                ofstream bookingFile("bookings.txt", ios::app);
+                bookingFile << booking.bookingId << " "
+                            << booking.username << " "
+                            << booking.flightId << " "
+                            << booking.amount << " "
+                            << booking.timestamp << endl;
+                bookingFile.close();
+
+                // Send order_url to client
+                send(client_socket, order_url.c_str(), order_url.length(), 0);
+                logMessage("Sent to client: " + order_url);
+            }
+            else
+            {
+                // Send error message
+                send(client_socket, "Booking failed", strlen("Booking failed"), 0);
+                logMessage("Booking failed: " + response);
+            }
+        }
+        // else if (action == "receive")
+        // {
+        // }
     }
 
     // Thêm client vào danh sách
@@ -445,6 +695,7 @@ int main(int argc, char *argv[])
     // lưu thông tin tài khoản mật khẩu từ file users.txt vào accounts
     loadUsers("users.txt");
     loadFlights("flights.txt");
+    loadBookings("bookings.txt");
 
     // tạo mảng động threads kiểu thread
     vector<thread> threads;
