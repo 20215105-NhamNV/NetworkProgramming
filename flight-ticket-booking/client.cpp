@@ -115,6 +115,42 @@ int main(int argc, char *argv[])
                     cout << userResponse << endl;
                     cout << "----------------------------------------------------------\n";
                 }
+                else if (choose == 2)
+                {
+                    cin.ignore();
+                    cout << "Giá vé tăng dân: (ascePrice)" << "\n"
+                         << "Giá vé giảm dân: (descPrice)\n";
+                    string userInput;
+                    getline(cin, userInput);
+                    send(client_socket, userInput.c_str(), userInput.length(), 0);
+
+                    char userResponse[BUFFER_SIZE];
+                    bzero(userResponse, BUFFER_SIZE);
+                    recv(client_socket, userResponse, BUFFER_SIZE, 0);
+                    cout << "\nKêt quả tìm kiêm:\n";
+                    cout << "----------------------------------------------------------\n";
+                    cout << "ID Airline Departure Destination StartDate EndDate Quantity ClassType Price Time\n";
+                    cout << userResponse << endl;
+                    cout << "----------------------------------------------------------\n";
+                }
+                else if (choose == 3)
+                {
+                    cin.ignore();
+                    cout << "Thời gian bay tăng dân: (asceTime)" << "\n"
+                         << "Thời gian bay giảm dân: (descTime)\n";
+                    string userInput;
+                    getline(cin, userInput);
+                    send(client_socket, userInput.c_str(), userInput.length(), 0);
+
+                    char userResponse[BUFFER_SIZE];
+                    bzero(userResponse, BUFFER_SIZE);
+                    recv(client_socket, userResponse, BUFFER_SIZE, 0);
+                    cout << "\nKêt quả tìm kiêm:\n";
+                    cout << "----------------------------------------------------------\n";
+                    cout << "ID Airline Departure Destination StartDate EndDate Quantity ClassType Price Time\n";
+                    cout << userResponse << endl;
+                    cout << "----------------------------------------------------------\n";
+                }
                 else
                 {
                     cout << "Tính năng chưa hoạt động\n";

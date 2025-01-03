@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 #include <cstring>
 #include "log.h" // ghi log
+#include <algorithm>
 
 using namespace std;
 #define BUFFER_SIZE 16384
@@ -18,6 +19,7 @@ using namespace std;
 // mutex client_mutex;       // bảo vệ map clients khỏi các truy cập đồng thời từ nhiều thread
 // map<int, string> clients; // Map lưu socket và username
 map<string, string> accounts;
+mutex register_mutex;
 
 struct Flight
 {
@@ -86,7 +88,6 @@ void handleClient(int client_socket)
     char buffer[BUFFER_SIZE];
     string username;
 
-    // Đăng nhập hoặc đăng ký
     while (true)
     {
         memset(buffer, 0, BUFFER_SIZE);
@@ -121,6 +122,7 @@ void handleClient(int client_socket)
         {
             if (!accounts.count(user))
             {
+                lock_guard<mutex> lock(register_mutex);
                 accounts[user] = pass;
                 ofstream file("users.txt", ios::app);
                 file << user << " " << pass << endl;
@@ -145,7 +147,7 @@ void handleClient(int client_socket)
         }
     }
 
-    // Tìm kiếm chuyến bay
+    // Trang người dùng
     while (true)
     {
         memset(buffer, 0, BUFFER_SIZE);
@@ -157,6 +159,7 @@ void handleClient(int client_socket)
         string action, departure, destination, startDate, endDate, quantityMax, quantityMin, classType;
         ss >> action >> departure >> destination >> startDate >> endDate >> quantityMin >> quantityMax >> classType;
 
+        // Tìm kiêm chuyên bay
         if (action == "search")
         {
             string searchResult;
@@ -190,12 +193,17 @@ void handleClient(int client_socket)
                 if (classType != "all" && flight.classType != classType)
                     continue;
 
+                int timeInMinutes = std::stoi(flight.time); // Chuyển từ string sang int
+                int hours = timeInMinutes / 60;             // Tính số giờ
+                int minutes = timeInMinutes % 60;           // Tính số phút còn lại
+                std::string formattedTime = std::to_string(hours) + "h" + std::to_string(minutes) + "p";
+
                 // Add matching flight to result
                 searchResult += flight.id + " " + flight.airline + " " +
                                 flight.departure + " " + flight.destination + " " +
                                 flight.startDate + " " + flight.endDate + " " +
                                 flight.quantity + " " + flight.classType + " " +
-                                flight.price + " " + flight.time + "\n";
+                                flight.price + " " + formattedTime + "\n";
             }
 
             // Send results to client
@@ -204,6 +212,135 @@ void handleClient(int client_socket)
 
             send(client_socket, searchResult.c_str(), searchResult.length(), 0);
             logMessage("Sent to client: " + searchResult);
+            break;
+        }
+
+        // săp xêp theo giá vé tăng dần
+        else if (action == "ascePrice")
+        {
+            // Create copy of flights vector for sorting
+            vector<Flight> asceFlights = flights;
+
+            // Sort by price
+            sort(asceFlights.begin(), asceFlights.end(),
+                 [](const Flight &a, const Flight &b)
+                 {
+                     return stoi(a.price) < stoi(b.price);
+                 });
+
+            string asceResult;
+            for (const Flight &flight : asceFlights)
+            {
+                int timeInMinutes = stoi(flight.time);
+                int hours = timeInMinutes / 60;
+                int minutes = timeInMinutes % 60;
+                string formattedTime = to_string(hours) + "h" + to_string(minutes) + "p";
+
+                asceResult += flight.id + " " + flight.airline + " " +
+                              flight.departure + " " + flight.destination + " " +
+                              flight.startDate + " " + flight.endDate + " " +
+                              flight.quantity + " " + flight.classType + " " +
+                              flight.price + " " + formattedTime + "\n";
+            }
+
+            send(client_socket, asceResult.c_str(), asceResult.length(), 0);
+            logMessage("Sent to client: " + asceResult);
+        }
+
+        // sắp xếp theo giá vé giảm dần
+        else if (action == "descPrice")
+        {
+            // Create copy of flights vector for sorting
+            vector<Flight> descFlights = flights;
+
+            // Sort by price
+            sort(descFlights.begin(), descFlights.end(),
+                 [](const Flight &a, const Flight &b)
+                 {
+                     return stoi(a.price) > stoi(b.price);
+                 });
+
+            string descResult;
+            for (const Flight &flight : descFlights)
+            {
+                int timeInMinutes = stoi(flight.time);
+                int hours = timeInMinutes / 60;
+                int minutes = timeInMinutes % 60;
+                string formattedTime = to_string(hours) + "h" + to_string(minutes) + "p";
+
+                descResult += flight.id + " " + flight.airline + " " +
+                              flight.departure + " " + flight.destination + " " +
+                              flight.startDate + " " + flight.endDate + " " +
+                              flight.quantity + " " + flight.classType + " " +
+                              flight.price + " " + formattedTime + "\n";
+            }
+
+            send(client_socket, descResult.c_str(), descResult.length(), 0);
+            logMessage("Sent to client: " + descResult);
+        }
+
+        // sắp xếp theo thời gian bay tăng dần
+        else if (action == "asceTime")
+        {
+            // Create copy of flights vector for sorting
+            vector<Flight> asceFlights = flights;
+
+            // Sort by time
+            sort(asceFlights.begin(), asceFlights.end(),
+                 [](const Flight &a, const Flight &b)
+                 {
+                     return stoi(a.time) < stoi(b.time);
+                 });
+
+            string asceResult;
+            for (const Flight &flight : asceFlights)
+            {
+                int timeInMinutes = stoi(flight.time);
+                int hours = timeInMinutes / 60;
+                int minutes = timeInMinutes % 60;
+                string formattedTime = to_string(hours) + "h" + to_string(minutes) + "p";
+
+                asceResult += flight.id + " " + flight.airline + " " +
+                              flight.departure + " " + flight.destination + " " +
+                              flight.startDate + " " + flight.endDate + " " +
+                              flight.quantity + " " + flight.classType + " " +
+                              flight.price + " " + formattedTime + "\n";
+            }
+
+            send(client_socket, asceResult.c_str(), asceResult.length(), 0);
+            logMessage("Sent to client: " + asceResult);
+        }
+
+        // sắp xếp theo thời gian bay giảm dần
+        else if (action == "descTime")
+        {
+            // Create copy of flights vector for sorting
+            vector<Flight> descFlights = flights;
+
+            // Sort by time
+            sort(descFlights.begin(), descFlights.end(),
+                 [](const Flight &a, const Flight &b)
+                 {
+                     return stoi(a.time) > stoi(b.time);
+                 });
+
+            string descResult;
+            for (const Flight &flight : descFlights)
+            {
+                int timeInMinutes = stoi(flight.time);
+                int hours = timeInMinutes / 60;
+                int minutes = timeInMinutes % 60;
+                string formattedTime = to_string(hours) + "h" + to_string(minutes) + "p";
+
+                descResult += flight.id + " " + flight.airline + " " +
+                              flight.departure + " " + flight.destination + " " +
+                              flight.startDate + " " + flight.endDate + " " +
+                              flight.quantity + " " + flight.classType + " " +
+                              flight.price + " " + formattedTime + "\n";
+            }
+
+            send(client_socket, descResult.c_str(), descResult.length(), 0);
+            logMessage("Sent to client: " + descResult);
         }
     }
 
