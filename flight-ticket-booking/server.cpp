@@ -221,6 +221,58 @@ string makeHttpRequest(const string &url, const string &jsonData)
     return response;
 }
 
+// Add read callback function
+static size_t ReadCallback(void *ptr, size_t size, size_t nmemb, void *userp)
+{
+    string *emailContent = (string *)userp;
+    if (emailContent->size() > 0)
+    {
+        size_t copyLen = min(emailContent->size(), size * nmemb);
+        memcpy(ptr, emailContent->c_str(), copyLen);
+        emailContent->erase(0, copyLen);
+        return copyLen;
+    }
+    return 0;
+}
+
+// Update sendEmail function
+bool sendEmail(const string &to, const string &subject, const string &body)
+{
+    CURL *curl = curl_easy_init();
+    if (!curl)
+        return false;
+
+    struct curl_slist *recipients = NULL;
+    recipients = curl_slist_append(recipients, to.c_str());
+
+    string emailContent =
+        "From: Flight Booking <bb208pdl151@gmail.com>\r\n"
+        "To: " +
+        to + "\r\n"
+             "Subject: " +
+        subject + "\r\n"
+                  "\r\n" +
+        body;
+
+    curl_easy_setopt(curl, CURLOPT_URL, "smtps://smtp.gmail.com:465");
+    curl_easy_setopt(curl, CURLOPT_USE_SSL, CURLUSESSL_ALL);
+    curl_easy_setopt(curl, CURLOPT_USERNAME, "bb208pdl151@gmail.com");
+    curl_easy_setopt(curl, CURLOPT_PASSWORD, "idhm hsec hloc deux");
+    curl_easy_setopt(curl, CURLOPT_MAIL_FROM, "<bb208pdl151@gmail.com>");
+    curl_easy_setopt(curl, CURLOPT_MAIL_RCPT, recipients);
+    curl_easy_setopt(curl, CURLOPT_READFUNCTION, ReadCallback);
+    curl_easy_setopt(curl, CURLOPT_READDATA, &emailContent);
+    curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+
+    CURLcode res = curl_easy_perform(curl);
+
+    curl_slist_free_all(recipients);
+    curl_easy_cleanup(curl);
+
+    return res == CURLE_OK;
+}
+
 // Xử lý client
 void handleClient(int client_socket)
 {
@@ -505,9 +557,9 @@ void handleClient(int client_socket)
                 continue;
             }
 
-            string app_id = "2554";
-            string key1 = "sdngKKJmqEMzvh5QQcdD2A9XBSKUNaYn";
-            string Key2 = "trMrHtvjo6myautxDUiAcYsVtaeQ8nhf";
+            string app_id = "2553";
+            string key1 = "PcY4iZIKFCIdgZvA6ueMcMHHUbRLYjPL";
+            string Key2 = "kLtgPl8HHhfvMuDHPwKfgfsY4Ydm9eIz";
 
             // Generate transaction ID
             srand(time(nullptr));
@@ -561,7 +613,7 @@ void handleClient(int client_socket)
                 // Create booking record
                 lock_guard<mutex> lock(booking_mutex);
                 Booking booking{
-                    to_string(transID), // bookingId
+                    app_trans_id,       // bookingId
                     username,           // username/email
                     flightId,           // flightId
                     to_string(amount),  // amount
@@ -586,12 +638,26 @@ void handleClient(int client_socket)
             {
                 // Send error message
                 send(client_socket, "Booking failed", strlen("Booking failed"), 0);
-                logMessage("Booking failed: " + response);
+                logMessage("Sent to client: Booking failed");
             }
         }
-        // else if (action == "receive")
-        // {
-        // }
+        else if (action == "receive")
+        {
+            string bookingId = departure;
+            string userEmail = destination;
+
+            // Send email
+            if (sendEmail(userEmail, "Mã vé của bạn", bookingId))
+            {
+                send(client_socket, "Mã vé đã gửi đến email", strlen("Mã vé đã gửi đến email"), 0);
+                logMessage("Send to client: Mã vé đã gửi đến email " + userEmail);
+            }
+            else
+            {
+                send(client_socket, "Không thê gưi email", strlen("Không thê gưi email"), 0);
+                logMessage("Send to client: Không gửi được tới email " + userEmail);
+            }
+        }
     }
 
     // Thêm client vào danh sách

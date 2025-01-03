@@ -94,6 +94,7 @@ int main(int argc, char *argv[])
                 cout << "3.So sánh thời gian bay\n";
                 cout << "4.Đặt vé máy bay và thanh toán trực tuyên\n";
                 cout << "5.Xem mã vé điện tư\n";
+                cout << "6.Quan lý vé đã đặt\n";
                 cout << "Nhập lựa chọn của bạn(từ 1 đên 5):\n";
                 int choose;
                 cin >> choose;
@@ -182,6 +183,22 @@ int main(int argc, char *argv[])
                     cout << userResponse << endl;
                     cout << "----------------------------------------------------------\n";
                 }
+                else if (choose == 6)
+                {
+                    cin.ignore();
+                    cout << "Xem mã vé điện tư: (receive bookingId email)" << "\n";
+                    string userInput;
+                    getline(cin, userInput);
+                    send(client_socket, userInput.c_str(), userInput.length(), 0);
+
+                    char userResponse[BUFFER_SIZE];
+                    bzero(userResponse, BUFFER_SIZE);
+                    recv(client_socket, userResponse, BUFFER_SIZE, 0);
+                    cout << "----------------------------------------------------------\n";
+                    cout << userResponse << endl;
+                    cout << "----------------------------------------------------------\n";
+                }
+
                 else
                 {
                     cout << "Tính năng chưa hoạt động\n";
