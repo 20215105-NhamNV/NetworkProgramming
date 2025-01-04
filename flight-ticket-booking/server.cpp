@@ -649,7 +649,7 @@ void handleClient(int client_socket)
             // Send email
             if (sendEmail(userEmail, "Mã vé của bạn", bookingId))
             {
-                send(client_socket, "Mã vé đã gửi đến email", strlen("Mã vé đã gửi đến email"), 0);
+                send(client_socket, "Mã vé đã gưi đên email", strlen("Mã vé đã gưi đên email"), 0);
                 logMessage("Send to client: Mã vé đã gửi đến email " + userEmail);
             }
             else
@@ -658,65 +658,134 @@ void handleClient(int client_socket)
                 logMessage("Send to client: Không gửi được tới email " + userEmail);
             }
         }
+        else if (action == "getBooking")
+        {
+            string bookingId = departure;
+            string result;
+
+            if (bookingId == "all")
+            {
+                // Return all bookings for current user
+                for (const Booking &booking : bookings)
+                {
+                    if (booking.username == username)
+                    {
+                        // Find corresponding flight
+                        Flight *flight = nullptr;
+                        for (auto &f : flights)
+                        {
+                            if (f.id == booking.flightId)
+                            {
+                                flight = &f;
+                                break;
+                            }
+                        }
+
+                        if (flight)
+                        {
+                            result += booking.bookingId + " " +
+                                      flight->airline + " " +
+                                      flight->departure + " " +
+                                      flight->destination + " " +
+                                      flight->startDate + " " +
+                                      flight->endDate + " " +
+                                      flight->classType + " " +
+                                      booking.amount + "\n";
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // Return specific booking details
+                for (const Booking &booking : bookings)
+                {
+                    if (booking.bookingId == bookingId && booking.username == username)
+                    {
+                        // Find corresponding flight
+                        for (const Flight &flight : flights)
+                        {
+                            if (flight.id == booking.flightId)
+                            {
+                                result = booking.bookingId + " " +
+                                         flight.airline + " " +
+                                         flight.departure + " " +
+                                         flight.destination + " " +
+                                         flight.startDate + " " +
+                                         flight.endDate + " " +
+                                         flight.classType + " " +
+                                         booking.amount;
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if (result.empty())
+            {
+                result = "No bookings found";
+            }
+
+            send(client_socket, result.c_str(), result.length(), 0);
+            logMessage("Sent to client: " + result);
+        }
+        else if (action == "cancel")
+        {
+            string bookingId = departure;
+            string result;
+            bool found = false;
+
+            // Find and remove booking
+            for (auto it = bookings.begin(); it != bookings.end();)
+            {
+                if (it->bookingId == bookingId && it->username == username)
+                {
+                    // Remove from vector
+                    it = bookings.erase(it);
+                    found = true;
+
+                    // Rewrite bookings file
+                    ofstream bookingFile("bookings.txt");
+                    for (const Booking &b : bookings)
+                    {
+                        bookingFile << b.bookingId << " "
+                                    << b.username << " "
+                                    << b.flightId << " "
+                                    << b.amount << " "
+                                    << b.timestamp << endl;
+                    }
+                    bookingFile.close();
+
+                    result = "Booking cancelled successfully";
+                    break;
+                }
+                else
+                {
+                    ++it;
+                }
+            }
+
+            if (!found)
+            {
+                result = "Booking not found or unauthorized";
+            }
+
+            send(client_socket, result.c_str(), result.length(), 0);
+            logMessage("Sent to client: " + result);
+        }
+        else if (action == "change")
+        {
+            string oldBookingId = departure;
+            string newBookingId = destination;
+        }
+        else if (action == "print")
+        {
+            string bookingId = departure;
+            string result;
+        }
     }
-
-    // Thêm client vào danh sách
-
-    // tạo mutex để ngăn nhiều client thao tác đồng thời vào map clients
-    // lock_guard<mutex> lock(client_mutex);
-    // clients[client_socket] = username;
-
-    // nhận tin nhắn từ client
-    // while (true)
-    // {
-    //     memset(buffer, 0, BUFFER_SIZE);
-    //     int bytes_received = recv(client_socket, buffer, BUFFER_SIZE, 0);
-    //     if (bytes_received <= 0)
-    //     {
-    //         // tạo mutex để ngăn nhiều client xóa phần tử của map đồng thời
-    //         lock_guard<mutex> lock(client_mutex);
-    //         clients.erase(client_socket);
-    //         close(client_socket);
-    //         break;
-    //     }
-
-    //     string message(buffer);
-
-    //     // kiểm tra cú pháp gửi tin nhắn
-    //     if (message.find('.') != string::npos)
-    //     {
-    //         size_t pos = message.find('.');
-    //         string recipient = message.substr(0, pos); // tên người nhận
-    //         string content = message.substr(pos + 1);  // nội dùng tin nhắn
-
-    //         // tạo mutex để đảm bảo chỉ 1 client đang duyệt qua clients để gửi tin nhắn đúng địa chỉ
-    //         lock_guard<mutex> lock(client_mutex);
-    //         bool found = false;
-    //         for (const auto &[sock, uname] : clients)
-    //         {
-    //             // nếu tìm thấy người nhận thì gửi tin nhắn
-    //             if (uname == recipient)
-    //             {
-    //                 string formatted_message = "(" + username + ": " + content + ")";
-    //                 send(sock, formatted_message.c_str(), formatted_message.length(), 0);
-    //                 found = true;
-    //                 break;
-    //             }
-    //         }
-    //         // nếu không tìm thấy người nhận
-    //         if (!found)
-    //         {
-    //             string error_message = "User " + recipient + " not exist!";
-    //             send(client_socket, error_message.c_str(), error_message.length(), 0);
-    //         }
-    //     }
-    //     // sai cú pháp gửi tin nhắn
-    //     else
-    //     {
-    //         string error_message = "send again: <username>.<messenge>";
-    //         send(client_socket, error_message.c_str(), error_message.length(), 0);
-    //     }
-    // }
 }
 
 int main(int argc, char *argv[])

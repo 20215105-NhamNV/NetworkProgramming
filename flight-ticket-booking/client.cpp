@@ -75,6 +75,7 @@ int main(int argc, char *argv[])
         cout << "\nTrang đăng kí, đăng nhập\n";
         cout << "----------------------------------------------------------\n";
         cout << "Đăng kí đăng nhập: (login/register username password)\n";
+
         cout << "Thoát: (exit)\n";
         getline(cin, command);
         send(client_socket, command.c_str(), command.length(), 0);
@@ -186,7 +187,12 @@ int main(int argc, char *argv[])
                 else if (choose == 6)
                 {
                     cin.ignore();
-                    cout << "Xem mã vé điện tư: (receive bookingId email)" << "\n";
+                    cout << "Xem tât cả vé đã đặt: (getBooking all)" << "\n";
+                    cout << "Xem chi tiêt vé: (getBooking bookingId)" << "\n";
+                    cout << "Hủy vé: (cancel bookingId)" << "\n";
+                    cout << "Đôi vé: (change oldBookingId newBookingId)" << "\n";
+                    cout << "in vé: (print bookingId)" << "\n";
+
                     string userInput;
                     getline(cin, userInput);
                     send(client_socket, userInput.c_str(), userInput.length(), 0);
@@ -195,6 +201,7 @@ int main(int argc, char *argv[])
                     bzero(userResponse, BUFFER_SIZE);
                     recv(client_socket, userResponse, BUFFER_SIZE, 0);
                     cout << "----------------------------------------------------------\n";
+                    cout << "BookingId Airline Price Departure Destination StartDate EndDate ClassType Price\n";
                     cout << userResponse << endl;
                     cout << "----------------------------------------------------------\n";
                 }
